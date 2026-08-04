@@ -92,25 +92,9 @@ void app_buzzer_play(app_buzzer_sound_t sound)
     switch (sound) {
     case APP_BUZZER_STARTUP:
         // Двойной восходящий тон
-        app_buzzer_play_tone(1000, 60);
-        vTaskDelay(pdMS_TO_TICKS(40));
-        app_buzzer_play_tone(1500, 80);
-        break;
-
-    case APP_BUZZER_GNSS_FIX:
-        // Тройной короткий позитивный тон
-        app_buzzer_play_tone(1200, 80);
-        vTaskDelay(pdMS_TO_TICKS(40));
-        app_buzzer_play_tone(1500, 80);
-        vTaskDelay(pdMS_TO_TICKS(40));
-        app_buzzer_play_tone(1800, 100);
-        break;
-
-    case APP_BUZZER_GNSS_LOST:
-        // Двойной нисходящий тон
-        app_buzzer_play_tone(1200, 120);
-        vTaskDelay(pdMS_TO_TICKS(50));
-        app_buzzer_play_tone(800, 150);
+        app_buzzer_play_tone(1000, 120);
+        vTaskDelay(pdMS_TO_TICKS(80));
+        app_buzzer_play_tone(1500, 160);
         break;
 
     case APP_BUZZER_FILE_ROTATE:
@@ -125,13 +109,6 @@ void app_buzzer_play(app_buzzer_sound_t sound)
         app_buzzer_play_tone(1250, 120);
         vTaskDelay(pdMS_TO_TICKS(30));
         app_buzzer_play_tone(1500, 200);
-        break;
-
-    case APP_BUZZER_FTP_ERROR:
-        // Двойной низкий сигнал
-        app_buzzer_play_tone(400, 200);
-        vTaskDelay(pdMS_TO_TICKS(100));
-        app_buzzer_play_tone(400, 200);
         break;
 
     case APP_BUZZER_FATAL:

@@ -30,11 +30,8 @@ extern "C" {
  */
 typedef enum {
     APP_BUZZER_STARTUP = 0, // Старт системы
-    APP_BUZZER_GNSS_FIX,   // Получен валидный 3D GNSS Fix
-    APP_BUZZER_GNSS_LOST,  // Потерян 3D GNSS Fix
     APP_BUZZER_FILE_ROTATE,// Ротация файлов на SD
     APP_BUZZER_FTP_SUCCESS,// Успешная отправка файлов на FTP
-    APP_BUZZER_FTP_ERROR,  // Ошибка отправки на FTP
     APP_BUZZER_FATAL       // Фатальная ошибка системы
 } app_buzzer_sound_t;
 

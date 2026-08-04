@@ -160,10 +160,8 @@ static void app_gnss_rx_task(void *pvParameters)
                         s_prev_fix_state = current_fix;
                         if (current_fix) {
                             ESP_LOGI(TAG, "GNSS 3D Fix ACQUIRED!");
-                            app_buzzer_play(APP_BUZZER_GNSS_FIX);
                         } else {
                             ESP_LOGW(TAG, "GNSS 3D Fix LOST!");
-                            app_buzzer_play(APP_BUZZER_GNSS_LOST);
                         }
                     }
 
