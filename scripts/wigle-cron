@@ -1,0 +1,3 @@
+SHELL=/bin/sh
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+*/5 * * * *    <ftpuser>    test -x /usr/local/bin/send_to_wigle.sh && /usr/local/bin/send_to_wigle.sh
