@@ -7,15 +7,16 @@ jobs:
   release:
     name: Semantic Release
     runs-on: ubuntu-latest
+    # Блок permissions критически важен для работы встроенного GITHUB_TOKEN
     permissions:
-      contents: write # Необходимо для создания тегов и релизов
-      issues: write
-      pull-requests: write
+      contents: write      # Разрешает создание Git-тегов, релизов и пуш файла CHANGELOG.md
+      issues: write        # (Опционально) Разрешает оставлять комментарии о релизе в Issue
+      pull-requests: write # (Опционально) Разрешает закрывать и комментировать PR
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # Обязательно для анализа всей истории коммитов
+          fetch-depth: 0 # Обязательно для корректного анализа всей истории коммитов
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -25,4 +26,7 @@ jobs:
       - name: Run Semantic Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npx semantic-release
+        run: |
+          # Устанавливаем плагин локально перед запуском
+          npm install @semantic-release/changelog
+          npx semantic-release
