@@ -96,6 +96,7 @@ static const char INDEX_HTML[] =
 "<h3 style=\"margin-bottom:10px;color:var(--primary);\">📊 Параметры системы</h3>"
 "<div class=\"grid\">"
 "<div class=\"stat\"><div class=\"stat-label\">Дата и время сборки</div><div class=\"stat-val\" id=\"bld\" style=\"font-size:0.85rem;color:var(--primary);\">-</div></div>"
+"<div class=\"stat\"><div class=\"stat-label\">Версия прошивки</div><div class=\"stat-val\" id=\"fwv\" style=\"font-size:0.85rem;color:var(--primary);\">-</div></div>"
 "<div class=\"stat\"><div class=\"stat-label\">Свободная память</div><div class=\"stat-val\" id=\"hp\">-</div></div>"
 "<div class=\"stat\"><div class=\"stat-label\">Время работы</div><div class=\"stat-val\" id=\"ut\">-</div></div>"
 "<div class=\"stat\"><div class=\"stat-label\">Причина перезагрузки</div><div class=\"stat-val\" id=\"rr\" style=\"font-size:0.85rem;\">-</div></div>"
@@ -186,6 +187,7 @@ static const char INDEX_HTML[] =
 "document.getElementById('warn_banner').style.display=(!d.sd_ok||!d.gnss_ok)?'block':'none';"
 "document.getElementById('wardriving_banner').style.display='block';"
 "document.getElementById('bld').innerText=d.build_date||'-';"
+"document.getElementById('fwv').innerText=d.fw_version||'-';"
 "document.getElementById('hp').innerText=(d.heap/1024).toFixed(1)+' KB';"
 "let u=d.uptime; let h=Math.floor(u/3600); let m=Math.floor((u%3600)/60); let s=Math.floor(u%60);"
 "let hs=(h>0)?(h+':'):''; let ms=(m<10&&h>0?'0'+m:m)+':'; let ss=(s<10?'0'+s:s);"
@@ -385,6 +387,7 @@ static esp_err_t status_get_handler(httpd_req_t *req)
 
     cJSON *root = cJSON_CreateObject();
     cJSON_AddStringToObject(root, "build_date", BUILD_DATETIME);
+    cJSON_AddStringToObject(root, "fw_version", FIRMWARE_VERSION);
     cJSON_AddNumberToObject(root, "heap", esp_get_free_internal_heap_size());
     cJSON_AddNumberToObject(root, "uptime", (double)(esp_timer_get_time() / 1000000ULL));
     cJSON_AddStringToObject(root, "reset_reason", app_get_reset_reason_str());

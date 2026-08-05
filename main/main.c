@@ -71,6 +71,7 @@ void app_main(void)
 
     ESP_LOGI(TAG, "=============================================");
     ESP_LOGI(TAG, "Starting ESP32 GNSS Logger & Wardriving (ESP-IDF)");
+    ESP_LOGI(TAG, "Firmware Version: %s", FIRMWARE_VERSION);
     ESP_LOGI(TAG, "=============================================");
 
     // Определение и вывод причины перезагрузки

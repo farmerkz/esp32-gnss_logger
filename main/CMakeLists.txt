@@ -30,3 +30,5 @@ idf_component_register(
         vfs
         ubx_parser
 )
+
+target_compile_definitions(${COMPONENT_LIB} PRIVATE FIRMWARE_VERSION="${PROJECT_VER}")
