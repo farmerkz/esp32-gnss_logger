@@ -28,5 +28,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # Устанавливаем плагин локально перед запуском
-          npm install @semantic-release/changelog
+          # npm install @semantic-release/changelog
+          npm install @semantic-release/changelog @semantic-release/exec @semantic-release/git
           npx semantic-release
