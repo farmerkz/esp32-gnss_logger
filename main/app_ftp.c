@@ -566,6 +566,11 @@ static void app_ftp_task(void *pvParameters)
     for (;;) {
         vTaskDelay(pdMS_TO_TICKS(1000)); /* Шаг цикла 1 секунда для точного тайминга */
 
+        /* Обрабатываем отложенный запрос на остановку веб-сервера из безопасного контекста задачи.
+         * app_webserver_request_stop() мог быть вызван из WiFi event task при потере AP.
+         * httpd_stop() вызывается здесь — в безопасном контексте FreeRTOS-задачи. */
+        app_webserver_process_stop();
+
         bool       web_enabled  = app_webserver_is_enabled_in_config();
         TickType_t now          = xTaskGetTickCount();
         bool       is_connected = app_wifi_is_connected();

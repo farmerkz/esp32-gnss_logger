@@ -41,8 +41,11 @@ static void event_handler(void *arg, esp_event_base_t event_base,
 
         xEventGroupClearBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
 
-        // При разрыве Wi-Fi останавливаем веб-сервер
-        app_webserver_stop();
+        /* При разрыве Wi-Fi запрашиваем отложенную остановку веб-сервера.
+         * НЕльЗЯ вызывать app_webserver_stop() здесь напрямую — httpd_stop() является
+         * блокирующей операцией и не может быть вызвана из WiFi event task.
+         * Фактическая остановка выполнится в app_ftp_task через app_webserver_process_stop(). */
+        app_webserver_request_stop();
 
         if (s_intentional_disconnect) {
             // Намеренное отключение — авторевконнект не нужен
