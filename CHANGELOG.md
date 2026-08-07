@@ -1,3 +1,10 @@
+## [1.1.1-beta.2](https://github.com/farmerkz/esp32-gnss_logger/compare/v1.1.1-beta.1...v1.1.1-beta.2) (2026-08-07)
+
+
+### Bug Fixes
+
+* **wifi:** устранить циклическую перезагрузку при обрыве связи ([7723b10](https://github.com/farmerkz/esp32-gnss_logger/commit/7723b107f5f4b7f4ccb26ba7a869185d6b1b303d))
+
 ## [1.1.1-beta.1](https://github.com/farmerkz/esp32-gnss_logger/compare/v1.1.0...v1.1.1-beta.1) (2026-08-06)
 
 
