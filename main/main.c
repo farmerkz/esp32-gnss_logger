@@ -137,51 +137,39 @@ void app_main(void)
         app_ota_check_and_update();
     }
 
-    // 7. Проверка условий активации Web-сервера
+    // 7. Проверка условий активации Web-сервера (для логов)
     bool web_active = app_webserver_is_enabled_in_config();
 
     // 8. Инициализация и проверка GNSS модуля
     bool gnss_ok = (app_gnss_init() == ESP_OK);
     g_system_checklist.gnss_ok = gnss_ok;
 
+    // Запуск фоновых задач FSM
+    app_webserver_init();
+    app_ftp_init();
+
     // 9. Запуск подсистем и управление ошибками оборудования
-    if (web_active) {
-        ESP_LOGI(TAG, "Webserver activation enabled in configuration.");
-        // Подключаемся к AP (non-fatal при сбое, двухфазный реконнект в app_ftp)
-        app_wifi_connect_sta(g_app_config.wifi_ssid, g_app_config.wifi_passwd, 5000);
-
-        // Всегда запускаем фоновую задачу FTP / реконнекта Wi-Fi
-        app_ftp_init();
-
-        if (!sd_mounted || !gnss_ok) {
-            ESP_LOGW(TAG, "WARNING: Hardware error detected (SD: %s, GNSS: %s). Tracks & Wardriving disabled. Web Diagnostics active.",
-                     sd_mounted ? "OK" : "FAIL", gnss_ok ? "OK" : "FAIL");
-            // Устройство остается работать в режиме веб-диагностики, логов и OTA
+    if (!sd_mounted || !gnss_ok) {
+        ESP_LOGE(TAG, "Hardware error detected (SD: %s, GNSS: %s).",
+                 sd_mounted ? "OK" : "FAIL", gnss_ok ? "OK" : "FAIL");
+        
+        if (web_active) {
+            ESP_LOGI(TAG, "Webserver enabled. Diagnostics mode active.");
+            // Сканер нужен для обнаружения AP и активации WiFi
+            app_wigle_init();
             app_ota_mark_valid();
         } else {
-            ESP_LOGI(TAG, "All hardware checks passed. Launching GPX tracker (Wardriving disabled in webserver mode)...");
-            ESP_LOGW(TAG, "R-1: WiFi scanning (Wardriving) is DISABLED while webserver is active.");
-            app_sdcard_cleanup_work_dirs();
-            app_gpx_init();  /* R-1: GPX треки пишутся всегда */
-            /* app_wigle_init() НЕ вызывается: сканирование WiFi несовместимо с активным веб-сервером */
-            app_ota_mark_valid();
-        }
-    } else {
-        ESP_LOGI(TAG, "Webserver activation disabled.");
-        if (!sd_mounted || !gnss_ok) {
-            ESP_LOGE(TAG, "FATAL: Hardware failure (SD: %s, GNSS: %s) with Webserver disabled! Rebooting...",
-                     sd_mounted ? "OK" : "FAIL", gnss_ok ? "OK" : "FAIL");
+            ESP_LOGE(TAG, "FATAL: Hardware failure with Webserver disabled! Rebooting...");
             app_buzzer_play(APP_BUZZER_FATAL);
             app_ota_mark_invalid_and_reboot();
             return;
-        } else {
-            ESP_LOGI(TAG, "All hardware checks passed. Launching GPX tracker, Wigle scanner and FTP worker...");
-            app_sdcard_cleanup_work_dirs();
-            app_gpx_init();
-            app_wigle_init();
-            app_ftp_init();
-            app_ota_mark_valid();
         }
+    } else {
+        ESP_LOGI(TAG, "All hardware checks passed. Launching GPX tracker and Wigle scanner...");
+        app_sdcard_cleanup_work_dirs();
+        app_gpx_init();
+        app_wigle_init();
+        app_ota_mark_valid();
     }
 
     ESP_LOGI(TAG, "System initialization complete. Entering monitoring loop.");

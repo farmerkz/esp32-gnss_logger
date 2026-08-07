@@ -558,129 +558,32 @@ static bool app_ftp_upload_dir(const char *src_dir, const char *dst_dir)
 
 static void app_ftp_task(void *pvParameters)
 {
-    int        web_retry_count      = 0;
-    TickType_t next_web_connect_tick = 0; // Немедленное подключение при старте
-    TickType_t last_ftp_check        = xTaskGetTickCount() - pdMS_TO_TICKS(30000); // Немедленный запуск FTP при старте
-
+    TickType_t last_ftp_check = xTaskGetTickCount() - pdMS_TO_TICKS(30000);
 
     for (;;) {
-        vTaskDelay(pdMS_TO_TICKS(1000)); /* Шаг цикла 1 секунда для точного тайминга */
+        vTaskDelay(pdMS_TO_TICKS(1000));
 
-        bool       web_enabled  = app_webserver_is_enabled_in_config();
-        TickType_t now          = xTaskGetTickCount();
-        bool       is_connected = app_wifi_is_connected();
+        EventBits_t bits = xEventGroupGetBits(g_network_event_group);
+        bool is_connected = (bits & BIT_WIFI_CONNECTED) != 0;
 
-        /* ================================================================
-         * ПРИОРИТЕТ 1: Управление Wi-Fi для веб-сервера
-         *
-         * Если веб-сервер включён — соединение с AP поддерживается постоянно.
-         * При потере связи выполняются попытки переподключения с backoff:
-         *   первые 3 попытки — раз в 60 сек, далее — раз в 300 сек.
-         * Счётчики сбрасываются при отключении веб-сервера в конфигурации.
-         * ================================================================ */
-        if (web_enabled) {
-            if (is_connected) {
-                g_system_checklist.wifi_ok = true;
-                web_retry_count       = 0;
-                next_web_connect_tick = 0;
-                
-                /* Безопасный запуск веб-сервера из контекста задачи (если еще не запущен) */
-                if (!app_webserver_is_running()) {
-                    app_webserver_start();
-                }
-            } else {
-                g_system_checklist.wifi_ok = false;
-                
-                /* Не вмешиваемся, если Wi-Fi находится в процессе автоматического переподключения (fast retries).
-                 * Подключаемся только если попытки исчерпаны (is_failed == true) */
-                if (app_wifi_is_failed()) {
-                    if (now >= next_web_connect_tick) {
-                        ESP_LOGW(TAG, "Webserver: attempting WiFi connection (attempt %d)...",
-                                 web_retry_count + 1);
-                        esp_err_t err = app_wifi_connect_sta(
-                            g_app_config.wifi_ssid, g_app_config.wifi_passwd, 15000);
-                        if (err == ESP_OK) {
-                            g_system_checklist.wifi_ok = true;
-                            is_connected          = true;
-                            web_retry_count       = 0;
-                            next_web_connect_tick = 0;
-                        } else {
-                            web_retry_count++;
-                            uint32_t delay_sec = (web_retry_count <= 3) ? 60 : 300;
-                            ESP_LOGW(TAG, "WiFi connect failed (attempt %d). Retry in %lu sec.",
-                                     web_retry_count, (unsigned long)delay_sec);
-                            next_web_connect_tick =
-                                xTaskGetTickCount() + pdMS_TO_TICKS(delay_sec * 1000);
-                        }
-                    }
-                }
-            }
-        } else {
-            /* Веб-сервер выключен — сбрасываем backoff счётчики */
-            web_retry_count       = 0;
-            next_web_connect_tick = 0;
-            g_system_checklist.wifi_ok = is_connected;
-            
-            /* Если сервер был запущен (изменилась конфигурация), останавливаем его */
-            if (app_webserver_is_running()) {
-                app_webserver_stop();
-            }
-        }
+        TickType_t now = xTaskGetTickCount();
 
-        /* ================================================================
-         * ПРИОРИТЕТ 2: Проверка и отправка файлов на FTP
-         *
-         * Выполняется каждые 30 секунд независимо от состояния веб-сервера.
-         * Активный веб-сервер не блокирует и не мешает FTP отгрузке.
-         * ================================================================ */
         if (now - last_ftp_check < pdMS_TO_TICKS(30000)) {
             continue;
         }
-        /* Если отправка не настроена — пропускаем */
+
         if (!g_app_config.gps_send && !g_app_config.wifi_send) {
             last_ftp_check = now;
             continue;
         }
 
-        /* Проверяем наличие файлов, готовых к отгрузке */
         if (!has_files_for_upload()) {
-            ESP_LOGD(TAG, "FTP check: No completed files in .rd directories. Skipping upload round.");
             last_ftp_check = now;
             continue;
         }
 
-
-        /* ----------------------------------------------------------------
-         * Управление подключением для FTP:
-         *
-         * Веб-сервер АКТИВЕН:
-         *   Используем текущее соединение Wi-Fi. Принудительное переподключение
-         *   не выполняем — этим управляет логика приоритета 1 с backoff.
-         *   Если AP сейчас недоступен — пропускаем эту итерацию FTP.
-         *
-         * Веб-сервер ВЫКЛЮЧЕН:
-         *   Подключаемся к AP самостоятельно (разовое подключение ради FTP).
-         *   После завершения отгрузки — отключаемся.
-         * ---------------------------------------------------------------- */
         if (!is_connected) {
-            if (web_enabled) {
-                /* Backoff активен — не форсируем подключение, пропускаем FTP */
-                ESP_LOGD(TAG,
-                         "Files in .rd found, but WiFi not connected (webserver backoff). "
-                         "Waiting for Wi-Fi...");
-                continue;
-            } else {
-                /* Подключаемся разово для FTP */
-                ESP_LOGI(TAG, "Files in .rd found. Connecting to WiFi SSID '%s' for FTP...",
-                         g_app_config.wifi_ssid);
-                if (app_wifi_connect_sta(g_app_config.wifi_ssid,
-                                         g_app_config.wifi_passwd, 15000) != ESP_OK) {
-                    ESP_LOGW(TAG, "WiFi connect failed. Skipping FTP upload.");
-                    last_ftp_check = now;
-                    continue;
-                }
-                is_connected = true;
-            }
+            continue; /* Ожидаем подключения от модуля WiFi */
         }
 
         last_ftp_check = now;
@@ -688,7 +591,6 @@ static void app_ftp_task(void *pvParameters)
         ESP_LOGI(TAG, "Starting FTP upload session to %s:%d",
                  g_app_config.ftp_address, g_app_config.ftp_port);
 
-        /* Отправляем GPS файлы */
         bool any_uploaded = false;
         if (g_app_config.gps_send) {
             if (app_ftp_upload_dir(DIR_GPS_RD, DIR_GPS_SD)) {
@@ -696,7 +598,6 @@ static void app_ftp_task(void *pvParameters)
             }
         }
 
-        /* Отправляем WiFi файлы */
         if (g_app_config.wifi_send) {
             if (app_ftp_upload_dir(DIR_WIFI_RD, DIR_WIFI_SD)) {
                 any_uploaded = true;
@@ -705,12 +606,6 @@ static void app_ftp_task(void *pvParameters)
 
         if (any_uploaded && g_app_config.ftp_beep) {
             app_buzzer_play(APP_BUZZER_FTP_SUCCESS);
-        }
-
-        /* Отключаемся от AP только если веб-сервер выключен
-         * (при активном веб-сервере соединение поддерживается постоянно) */
-        if (!web_enabled) {
-            app_wifi_disconnect_sta();
         }
     }
 }

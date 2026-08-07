@@ -23,6 +23,7 @@
 #include "app_log_buffer.h"
 #include "app_buzzer.h"
 #include "app_ota.h"
+#include "app_wifi.h"
 
 static const char *TAG = "WEBSERVER";
 static httpd_handle_t s_server = NULL;
@@ -875,4 +876,37 @@ void app_webserver_stop(void)
 bool app_webserver_is_running(void)
 {
     return (s_server != NULL);
+}
+
+static void webserver_monitor_task(void *pvParameters)
+{
+    for (;;) {
+        /* Ожидаем подключения к WiFi */
+        EventBits_t bits = xEventGroupWaitBits(g_network_event_group, BIT_WIFI_CONNECTED,
+                                               pdFALSE, pdFALSE, portMAX_DELAY);
+        
+        if (bits & BIT_WIFI_CONNECTED) {
+            /* Подключились. Проверяем конфиг и запускаем сервер, если нужно */
+            if (app_webserver_is_enabled_in_config() && !app_webserver_is_running()) {
+                ESP_LOGI(TAG, "WiFi connected. Starting Webserver...");
+                app_webserver_start();
+            }
+            
+            /* Ждем, пока подключение активно */
+            while (xEventGroupGetBits(g_network_event_group) & BIT_WIFI_CONNECTED) {
+                vTaskDelay(pdMS_TO_TICKS(1000));
+            }
+            
+            /* Подключение разорвано. Останавливаем сервер */
+            if (app_webserver_is_running()) {
+                ESP_LOGI(TAG, "WiFi disconnected. Stopping Webserver...");
+                app_webserver_stop();
+            }
+        }
+    }
+}
+
+void app_webserver_init(void)
+{
+    xTaskCreate(webserver_monitor_task, "webserver_monitor", 4096, NULL, 4, NULL);
 }
