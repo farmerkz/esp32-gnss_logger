@@ -566,11 +566,6 @@ static void app_ftp_task(void *pvParameters)
     for (;;) {
         vTaskDelay(pdMS_TO_TICKS(1000)); /* Шаг цикла 1 секунда для точного тайминга */
 
-        /* Обрабатываем отложенный запрос на остановку веб-сервера из безопасного контекста задачи.
-         * app_webserver_request_stop() мог быть вызван из WiFi event task при потере AP.
-         * httpd_stop() вызывается здесь — в безопасном контексте FreeRTOS-задачи. */
-        app_webserver_process_stop();
-
         bool       web_enabled  = app_webserver_is_enabled_in_config();
         TickType_t now          = xTaskGetTickCount();
         bool       is_connected = app_wifi_is_connected();
@@ -588,25 +583,35 @@ static void app_ftp_task(void *pvParameters)
                 g_system_checklist.wifi_ok = true;
                 web_retry_count       = 0;
                 next_web_connect_tick = 0;
+                
+                /* Безопасный запуск веб-сервера из контекста задачи (если еще не запущен) */
+                if (!app_webserver_is_running()) {
+                    app_webserver_start();
+                }
             } else {
                 g_system_checklist.wifi_ok = false;
-                if (now >= next_web_connect_tick) {
-                    ESP_LOGW(TAG, "Webserver: attempting WiFi connection (attempt %d)...",
-                             web_retry_count + 1);
-                    esp_err_t err = app_wifi_connect_sta(
-                        g_app_config.wifi_ssid, g_app_config.wifi_passwd, 15000);
-                    if (err == ESP_OK) {
-                        g_system_checklist.wifi_ok = true;
-                        is_connected          = true;
-                        web_retry_count       = 0;
-                        next_web_connect_tick = 0;
-                    } else {
-                        web_retry_count++;
-                        uint32_t delay_sec = (web_retry_count <= 3) ? 60 : 300;
-                        ESP_LOGW(TAG, "WiFi connect failed (attempt %d). Retry in %lu sec.",
-                                 web_retry_count, (unsigned long)delay_sec);
-                        next_web_connect_tick =
-                            xTaskGetTickCount() + pdMS_TO_TICKS(delay_sec * 1000);
+                
+                /* Не вмешиваемся, если Wi-Fi находится в процессе автоматического переподключения (fast retries).
+                 * Подключаемся только если попытки исчерпаны (is_failed == true) */
+                if (app_wifi_is_failed()) {
+                    if (now >= next_web_connect_tick) {
+                        ESP_LOGW(TAG, "Webserver: attempting WiFi connection (attempt %d)...",
+                                 web_retry_count + 1);
+                        esp_err_t err = app_wifi_connect_sta(
+                            g_app_config.wifi_ssid, g_app_config.wifi_passwd, 15000);
+                        if (err == ESP_OK) {
+                            g_system_checklist.wifi_ok = true;
+                            is_connected          = true;
+                            web_retry_count       = 0;
+                            next_web_connect_tick = 0;
+                        } else {
+                            web_retry_count++;
+                            uint32_t delay_sec = (web_retry_count <= 3) ? 60 : 300;
+                            ESP_LOGW(TAG, "WiFi connect failed (attempt %d). Retry in %lu sec.",
+                                     web_retry_count, (unsigned long)delay_sec);
+                            next_web_connect_tick =
+                                xTaskGetTickCount() + pdMS_TO_TICKS(delay_sec * 1000);
+                        }
                     }
                 }
             }
@@ -615,6 +620,11 @@ static void app_ftp_task(void *pvParameters)
             web_retry_count       = 0;
             next_web_connect_tick = 0;
             g_system_checklist.wifi_ok = is_connected;
+            
+            /* Если сервер был запущен (изменилась конфигурация), останавливаем его */
+            if (app_webserver_is_running()) {
+                app_webserver_stop();
+            }
         }
 
         /* ================================================================

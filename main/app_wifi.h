@@ -39,6 +39,12 @@ bool app_wifi_is_connected(void);
  */
 void app_wifi_disconnect_sta(void);
 
+/**
+ * @brief Проверяет, завершились ли автоматические попытки переподключения неудачей.
+ * @return true если попытки исчерпаны (или ещё не начинались с момента загрузки).
+ */
+bool app_wifi_is_failed(void);
+
 #ifdef __cplusplus
 }
 #endif

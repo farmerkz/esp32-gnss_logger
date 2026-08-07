@@ -27,11 +27,6 @@
 static const char *TAG = "WEBSERVER";
 static httpd_handle_t s_server = NULL;
 
-/* Флаг отложенной остановки веб-сервера.
- * Устанавливается из WiFi event task (небезопасный контекст),
- * читается и сбрасывается в app_ftp_task (безопасный контекст задачи). */
-static volatile bool s_stop_requested = false;
-
 // ====================================================================================
 static const char *BUILD_DATETIME = __DATE__ " " __TIME__;
 
@@ -874,29 +869,6 @@ void app_webserver_stop(void)
         ESP_LOGI(TAG, "Stopping Webserver...");
         httpd_stop(s_server);
         s_server = NULL;
-    }
-}
-
-void app_webserver_request_stop(void)
-{
-    /* Безопасно вызывается из любого контекста (включая WiFi event task).
-     * Не блокирует, не вызывает httpd напрямую. */
-    if (s_server != NULL) {
-        ESP_LOGI(TAG, "Webserver stop requested (async).");
-        s_stop_requested = true;
-    }
-}
-
-void app_webserver_process_stop(void)
-{
-    /* Должна вызываться изконтекста FreeRTOS-задачи (например, app_ftp_task).
-     * httpd_stop() — блокирующая операция, вызывается здесь безопасно. */
-    if (s_stop_requested && s_server != NULL) {
-        ESP_LOGI(TAG, "Processing deferred Webserver stop...");
-        s_stop_requested = false;
-        httpd_stop(s_server);
-        s_server = NULL;
-        ESP_LOGI(TAG, "Webserver stopped.");
     }
 }
 

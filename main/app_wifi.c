@@ -11,7 +11,6 @@
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
-#include "app_webserver.h"
 
 static const char *TAG = "WIFI";
 
@@ -41,12 +40,6 @@ static void event_handler(void *arg, esp_event_base_t event_base,
 
         xEventGroupClearBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
 
-        /* При разрыве Wi-Fi запрашиваем отложенную остановку веб-сервера.
-         * НЕльЗЯ вызывать app_webserver_stop() здесь напрямую — httpd_stop() является
-         * блокирующей операцией и не может быть вызвана из WiFi event task.
-         * Фактическая остановка выполнится в app_ftp_task через app_webserver_process_stop(). */
-        app_webserver_request_stop();
-
         if (s_intentional_disconnect) {
             // Намеренное отключение — авторевконнект не нужен
             s_intentional_disconnect = false;
@@ -72,9 +65,6 @@ static void event_handler(void *arg, esp_event_base_t event_base,
         s_retry_count = 0;
         xEventGroupClearBits(s_wifi_event_group, WIFI_FAIL_BIT);
         xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
-
-        // При получении IP-адреса пытаемся активировать веб-сервер (проверка условий внутри app_webserver_start)
-        app_webserver_start();
     }
 }
 
@@ -104,6 +94,10 @@ esp_err_t app_wifi_init(void)
 
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
     ESP_ERROR_CHECK(esp_wifi_start());
+
+    // Изначально находимся в состоянии "не подключено / failed",
+    // чтобы app_ftp_task мог инициировать первое подключение
+    xEventGroupSetBits(s_wifi_event_group, WIFI_FAIL_BIT);
 
     ESP_LOGI(TAG, "WiFi station driver initialized");
     return ESP_OK;
@@ -169,5 +163,11 @@ void app_wifi_disconnect_sta(void)
     s_intentional_disconnect = true; // Подавляем авторевконнект
     esp_wifi_disconnect();
     ESP_LOGI(TAG, "Disconnected from WiFi AP");
+}
+
+bool app_wifi_is_failed(void)
+{
+    EventBits_t bits = xEventGroupGetBits(s_wifi_event_group);
+    return (bits & WIFI_FAIL_BIT) != 0;
 }
 
