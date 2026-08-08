@@ -887,6 +887,7 @@ static void webserver_monitor_task(void *pvParameters)
         
         if (bits & BIT_WIFI_CONNECTED) {
             /* Подключились. Проверяем конфиг и запускаем сервер, если нужно */
+            g_system_checklist.wifi_ok = true;
             if (app_webserver_is_enabled_in_config() && !app_webserver_is_running()) {
                 ESP_LOGI(TAG, "WiFi connected. Starting Webserver...");
                 app_webserver_start();
@@ -898,6 +899,7 @@ static void webserver_monitor_task(void *pvParameters)
             }
             
             /* Подключение разорвано. Останавливаем сервер */
+            g_system_checklist.wifi_ok = false;
             if (app_webserver_is_running()) {
                 ESP_LOGI(TAG, "WiFi disconnected. Stopping Webserver...");
                 app_webserver_stop();
