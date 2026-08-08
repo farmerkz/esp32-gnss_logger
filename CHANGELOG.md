@@ -1,3 +1,10 @@
+## [1.1.1-beta.3](https://github.com/farmerkz/esp32-gnss_logger/compare/v1.1.1-beta.2...v1.1.1-beta.3) (2026-08-08)
+
+
+### Bug Fixes
+
+* **webserver:** исправить отображение статуса подключения WiFi ([d316516](https://github.com/farmerkz/esp32-gnss_logger/commit/d316516eb11de29c776bf059747baff3d67ef6aa))
+
 ## [1.1.1-beta.2](https://github.com/farmerkz/esp32-gnss_logger/compare/v1.1.1-beta.1...v1.1.1-beta.2) (2026-08-07)
 
 
