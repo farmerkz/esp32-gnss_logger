@@ -8,6 +8,7 @@
  *  R-2: guard-флаг предотвращает двойной запуск задачи.
  *  R-3: app_buzzer_play() вызывается ПОСЛЕ освобождения g_sd_mutex.
  *  R-1: задача не запускается при активном веб-сервере (управляется из main.c).
+ *  W-2: периодический fsync каждые 64 строки данных для гарантии физической записи на SD.
  */
 
 #include "app_wigle.h"
@@ -30,6 +31,12 @@ static const char *TAG = "WIGLE";
 
 static FILE *s_current_wifi_file = NULL;
 static char s_current_wifi_path[256] = {0};
+
+/** Счётчик записанных строк данных CSV для периодического fsync */
+static uint32_t s_csv_lines_written = 0;
+
+/** Интервал вызова fsync (каждые N строк данных) */
+#define CSV_FSYNC_INTERVAL 64
 
 /* Минимальная длина корректной строки данных CSV (приблизительно) */
 #define CSV_MIN_LINE_LEN 40
@@ -296,14 +303,22 @@ static void app_wigle_task(void *pvParameters)
                                     ap_records[i].primary,
                                     ap_records[i].rssi,
                                     lat, lon, (int)alt, acc);
+                            s_csv_lines_written++;
                         }
                         fflush(s_current_wifi_file);
+
+                        /* Периодический fsync для гарантии физической записи на SD-карту */
+                        if (s_csv_lines_written >= CSV_FSYNC_INTERVAL) {
+                            fsync(fileno(s_current_wifi_file));
+                            s_csv_lines_written = 0;
+                        }
 
                         fseek(s_current_wifi_file, 0, SEEK_END);
                         long current_size = ftell(s_current_wifi_file);
                         if (current_size >= (long)g_app_config.filesize_limit) {
                             fclose(s_current_wifi_file);
                             s_current_wifi_file = NULL;
+                            s_csv_lines_written = 0;
 
                             char ready_path[256];
                             snprintf(ready_path, sizeof(ready_path), "%s/wifi-%s_%s.csv",
