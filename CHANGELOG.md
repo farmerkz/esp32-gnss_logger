@@ -1,3 +1,10 @@
+# [1.2.0-beta.1](https://github.com/farmerkz/esp32-gnss_logger/compare/v1.1.1-beta.3...v1.2.0-beta.1) (2026-08-12)
+
+
+### Features
+
+* **wigle:** добавить периодический fsync каждые 64 строки CSV ([1209683](https://github.com/farmerkz/esp32-gnss_logger/commit/1209683f67fd66d09c201e2ea7c78c6ecbee846f))
+
 ## [1.1.1-beta.3](https://github.com/farmerkz/esp32-gnss_logger/compare/v1.1.1-beta.2...v1.1.1-beta.3) (2026-08-08)
 
 
